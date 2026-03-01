@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessible Flappy Bird - Audio Game for Blind Users</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Start Screen */
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        #startScreen.hidden {
+            display: none;
+        }
+
+        .start-container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .start-title {
+            color: #ffff00;
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px #ffff00;
+        }
+
+        .start-instructions {
+            color: #00ff00;
+            font-size: 18px;
+            margin-bottom: 40px;
+            line-height: 1.6;
+            max-width: 600px;
+        }
+
+        #startButton {
+            background: #ffff00;
+            color: #000;
+            border: none;
+            padding: 30px 60px;
+            font-size: 28px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 0 20px #ffff00;
+            transition: all 0.2s;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        #startButton:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 30px #ffff00;
+        }
+
+        #startButton:focus {
+            outline: 3px solid #00ff00;
+            outline-offset: 5px;
+        }
+
+        /* Game Canvas */
+        #gameContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #gameContainer.hidden {
+            display: none;
+        }
+
+        canvas {
+            display: block;
+            background: #1a1a1a;
+            border: 5px solid #ffff00;
+            width: 100%;
+            height: 100%;
+            max-width: 480px;
+            max-height: 853px;
+            touch-action: none;
+        }
+
+        /* Control Panel */
+        #controlPanel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: #000;
+            border: 2px solid #ffff00;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #volumeLabel {
+            color: #ffff00;
+            display: block;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        #volumeControl {
+            width: 150px;
+            accent-color: #ffff00;
+            cursor: pointer;
+        }
+
+        /* Status Display */
+        #gameStatus {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            color: #00ff00;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 999;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 5px #00ff00;
+        }
+
+        /* Live Region for Announcements */
+        #liveRegion {
+            position: absolute;
+            top: -10000px;
+            left: -10000px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .start-title {
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+
+            .start-instructions {
+                font-size: 16px;
+                margin-bottom: 30px;
+            }
+
+            #startButton {
+                padding: 25px 50px;
+                font-size: 24px;
+            }
+
+            #controlPanel {
+                top: 5px;
+                left: 5px;
+                padding: 8px;
+            }
+
+            #gameStatus {
+                font-size: 16px;
+                padding: 12px;
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Live Region for Screen Reader Announcements -->
+    <div id="liveRegion" role="status" aria-live="assertive" aria-atomic="true"></div>
+
+    <!-- Start Screen -->
+    <div id="startScreen">
+        <div class="start-container">
+            <div class="start-title">🎮 FLAPPY BIRD 🎮</div>
+            <div class="start-instructions">
+                <strong>HOW TO PLAY:</strong><br><br>
+                ✋ TAP the START button below<br>
+                🔊 Listen to the PITCH change<br>
+                👆 TAP anywhere to FLY<br>
+                🎯 Avoid the GREEN PIPES<br>
+                📳 Feel vibration when you crash<br><br>
+                <span style="color: #ffff00;">Higher Pitch = Flying Up</span><br>
+                <span style="color: #ffff00;">Lower Pitch = Falling Down</span>
+            </div>
+            <button id="startButton" aria-label="Start Game Button - Tap to begin playing">START GAME</button>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="gameContainer" class="hidden">
+        <!-- Control Panel -->
+        <div id="controlPanel">
+            <label for="volumeControl" id="volumeLabel">Volume:</label>
+            <input type="range" id="volumeControl" min="0" max="100" value="70" aria-label="Master Volume Control">
+        </div>
+
+        <!-- Game Canvas -->
+        <canvas id="gameCanvas" 
+                role="img" 
+                aria-label="Flappy Bird Game - Tap anywhere to fly the bird"
+                style="cursor: pointer;"></canvas>
+
+        <!-- Status Display -->
+        <div id="gameStatus" role="status" aria-live="polite">
+            <div id="statusText">READY</div>
+            <div style="font-size: 16px; margin-top: 8px;">Score: <span id="scoreDisplay">0</span></div>
+        </div>
+    </div>
+
+    <script>
+        const startScreen = document.getElementById('startScreen');
+        const startButton = document.getElementById('startButton');
+        const gameContainer = document.getElementById('gameContainer');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const liveRegion = document.getElementById('liveRegion');
+        const volumeControl = document.getElementById('volumeControl');
+        const statusText = document.getElementById('statusText');
+
+        let gameStarted = false;
+        let gameRunning = false;
+        let gameOver = false;
+        let audioInitialized = false;
+        let audioContext = null;
+        let audioVolume = 0.7;
+
+        function resizeCanvas() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const maxWidth = 480;
+            const maxHeight = 853;
+
+            if (width <= maxWidth) {
+                canvas.width = width;
+                canvas.height = height;
+            } else {
+                canvas.width = maxWidth;
+                canvas.height = maxHeight;
+            }
+        }
+
+        let score = 0;
+
+        const bird = {
+            x: canvas.width * 0.2,
+            y: canvas.height / 2,
+            width: 30,
+            height: 30,
+            velocity: 0,
+            gravity: 0.25,
+            flapForce: -8,
+            maxVelocity: 6
+        };
+
+        const pipe = {
+            width: 80,
+            gapSize: 300,
+            spacing: 400,
+            velocity: -2
+        };
+
+        let pipes = [];
+        let nextPipeX = canvas.width + 200;
+        let pipesPassed = new Set();
+
+        let navigationOscillator = null;
+        let navigationGain = null;
+
+        function initializeAudio() {
+            if (audioInitialized) return;
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                navigationOscillator = audioContext.createOscillator();
+                navigationGain = audioContext.createGain();
+                navigationOscillator.type = 'sine';
+                navigationOscillator.connect(navigationGain);
+                navigationGain.connect(audioContext.destination);
+                navigationGain.gain.value = 0;
+                navigationOscillator.start(0);
+
+                audioInitialized = true;
+            } catch (e) {
+                console.error('Audio init failed:', e);
+            }
+        }
+
+        function updateNavigationPitch() {
+            if (!audioInitialized || !gameRunning || gameOver) {
+                if (navigationGain && audioContext) {
+                    navigationGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.05);
+                }
+                return;
+            }
+
+            const minY = 50;
+            const maxY = canvas.height - 80;
+            const normalized = Math.max(0, Math.min(1, (bird.y - minY) / (maxY - minY)));
+            const frequency = 800 - (normalized * 750);
+
+            if (navigationOscillator && audioContext) {
+                navigationOscillator.frequency.setTargetAtTime(frequency, audioContext.currentTime, 0.05);
+                const targetVolume = audioVolume * 0.35;
+                navigationGain.gain.setTargetAtTime(targetVolume, audioContext.currentTime, 0.05);
+            }
+        }
+
+        function playSound(frequency, duration, attack = 0.05, release = 0.1) {
+            if (!audioInitialized || !audioContext) return;
+
+            try {
+                const now = audioContext.currentTime;
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(audioVolume * 0.5, now + attack);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration - release);
+
+                oscillator.start(now);
+                oscillator.stop(now + duration);
+            } catch (e) {
+                console.error('Sound error:', e);
+            }
+        }
+
+        function playFlapSound() {
+            playSound(500, 0.15, 0.02, 0.05);
+            playSound(650, 0.12, 0.02, 0.03);
+        }
+
+        function playScoreSound() {
+            playSound(800, 0.1, 0.02, 0.02);
+            playSound(1000, 0.15, 0.02, 0.05);
+            playSound(800, 0.1, 0.02, 0.02);
+        }
+
+        function playCrashSound() {
+            playSound(200, 0.3, 0.05, 0.15);
+            playSound(150, 0.35, 0.05, 0.2);
+        }
+
+        volumeControl.addEventListener('input', (e) => {
+            audioVolume = parseInt(e.target.value) / 100;
+        });
+
+        function vibrate(pattern) {
+            try {
+                if (navigator.vibrate) {
+                    navigator.vibrate(pattern);
+                } else if (navigator.webkitVibrate) {
+                    navigator.webkitVibrate(pattern);
+                }
+            } catch (e) {
+                console.error('Vibration error:', e);
+            }
+        }
+
+        function vibrateFlap() {
+            vibrate([50]);
+        }
+
+        function vibrateScore() {
+            vibrate([80, 50, 80]);
+        }
+
+        function vibrateCrash() {
+            vibrate([200, 100, 200, 100, 200]);
+        }
+
+        function announce(text) {
+            liveRegion.textContent = text;
+        }
+
+        let lastGuidanceTime = 0;
+        const guidanceInterval = 800;
+
+        function giveVoiceGuidance() {
+            if (!gameRunning || gameOver || !audioInitialized) return;
+
+            const now = Date.now();
+            if (now - lastGuidanceTime < guidanceInterval) return;
+
+            lastGuidanceTime = now;
+
+            const minY = 50;
+            const maxY = canvas.height - 80;
+            const normalized = Math.max(0, Math.min(1, (bird.y - minY) / (maxY - minY)));
+
+            if (normalized < 0.33) {
+                announce('Up. Tap to go down.');
+            } else if (normalized > 0.67) {
+                announce('Down. Tap to go up.');
+            } else {
+                announce('Center. Good position. Relax.');
+            }
+        }
+
+        function updateStatusDisplay() {
+            document.getElementById('scoreDisplay').textContent = score;
+            let status = 'PLAYING';
+            if (gameOver) {
+                status = '❌ GAME OVER';
+            } else if (!gameRunning) {
+                status = '⏸️ PAUSED';
+            }
+            statusText.textContent = status;
+        }
+
+        function flap() {
+            if (!gameRunning || gameOver) return;
+            bird.velocity = bird.flapForce;
+            playFlapSound();
+            vibrateFlap();
+        }
+
+        function update() {
+            if (!gameRunning || !gameStarted) return;
+
+            bird.velocity += bird.gravity;
+            bird.velocity = Math.min(bird.velocity, bird.maxVelocity);
+            bird.y += bird.velocity;
+
+            updateNavigationPitch();
+            giveVoiceGuidance();
+
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                pipes[i].x += pipe.velocity;
+
+                if (pipes[i].x + pipe.width < bird.x && !pipesPassed.has(i)) {
+                    pipesPassed.add(i);
+                    score++;
+                    playScoreSound();
+                    vibrateScore();
+                    announce(`Score: ${score}`);
+                    updateStatusDisplay();
+                }
+
+                if (pipes[i].x + pipe.width < 0) {
+                    pipes.splice(i, 1);
+                }
+            }
+
+            if (nextPipeX < canvas.width) {
+                const gapPosition = Math.random() * (canvas.height - pipe.gapSize - 100) + 50;
+                pipes.push({ x: canvas.width, y: gapPosition });
+                nextPipeX = canvas.width + pipe.spacing;
+            }
+
+            if (bird.y - bird.height / 2 <= 0 || bird.y + bird.height / 2 >= canvas.height) {
+                endGame();
+                return;
+            }
+
+            for (let p of pipes) {
+                const birdLeft = bird.x - bird.width / 2;
+                const birdRight = bird.x + bird.width / 2;
+                const birdTop = bird.y - bird.height / 2;
+                const birdBottom = bird.y + bird.height / 2;
+
+                const pipeLeft = p.x;
+                const pipeRight = p.x + pipe.width;
+                const topPipeBottom = p.y;
+                const bottomPipeTop = p.y + pipe.gapSize;
+
+                if (birdRight > pipeLeft && birdLeft < pipeRight) {
+                    if (birdTop < topPipeBottom || birdBottom > bottomPipeTop) {
+                        endGame();
+                        return;
+                    }
+                }
+            }
+        }
+
+        function endGame() {
+            gameRunning = false;
+            gameOver = true;
+            playCrashSound();
+            vibrateCrash();
+            announce(`Game Over! Final Score: ${score}. Tap anywhere to play again.`);
+            updateStatusDisplay();
+            if (navigationGain && audioContext) {
+                navigationGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.2);
+            }
+        }
+
+        function resetGame() {
+            bird.y = canvas.height / 2;
+            bird.velocity = 0;
+            pipes = [];
+            pipesPassed.clear();
+            nextPipeX = canvas.width + 200;
+            score = 0;
+            gameRunning = true;
+            gameOver = false;
+            announce('Game restarted! Tap anywhere to fly.');
+            updateStatusDisplay();
+        }
+
+        function draw() {
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#00ff00';
+            for (let p of pipes) {
+                ctx.fillRect(p.x, 0, pipe.width, p.y);
+                ctx.fillRect(p.x, p.y + pipe.gapSize, pipe.width, canvas.height);
+            }
+
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(bird.x, bird.y, bird.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#ff6600';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffff00';
+            ctx.font = 'bold 40px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Score: ${score}`, 20, 60);
+
+            if (gameOver) {
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 28px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('TAP TO RESTART', canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function handleTap(e) {
+            if (e) e.preventDefault();
+            if (!gameStarted) return;
+
+            if (gameOver) {
+                resetGame();
+            } else if (gameRunning) {
+                flap();
+            }
+        }
+
+        document.addEventListener('touchstart', (e) => {
+            handleTap(e);
+        }, false);
+
+        document.addEventListener('touchend', (e) => {
+            e.preventDefault();
+        }, false);
+
+        document.addEventListener('click', (e) => {
+            handleTap(e);
+        }, false);
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.code === 'Space' || e.code === 'ArrowUp') && gameStarted) {
+                e.preventDefault();
+                handleTap(e);
+            }
+        });
+
+        startButton.addEventListener('click', (e) => {
+            e.preventDefault();
+
+            initializeAudio();
+
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            vibrate([100, 50, 100]);
+            playSound(800, 0.3, 0.05, 0.1);
+
+            setTimeout(() => {
+                startScreen.classList.add('hidden');
+                gameContainer.classList.remove('hidden');
+
+                gameStarted = true;
+                gameRunning = true;
+                gameOver = false;
+
+                resizeCanvas();
+
+                announce('Game started! Tap to fly. Listen to pitch and voice guidance. Center position is safe. Up means go down, Down means go up.');
+                updateStatusDisplay();
+
+                gameLoop();
+            }, 500);
+        });
+
+        startButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+        }, false);
+
+        let lastFrameTime = Date.now();
+        const targetFPS = 60;
+        const frameInterval = 1000 / targetFPS;
+
+        function gameLoop() {
+            const now = Date.now();
+            const elapsed = now - lastFrameTime;
+
+            if (elapsed >= frameInterval) {
+                update();
+                draw();
+                lastFrameTime = now - (elapsed % frameInterval);
+            }
+
+            if (gameStarted) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            announce('Welcome to Accessible Flappy Bird. Tap Start Game button. Game will tell you: Up means go down, Down means go up, Center means stay. Listen to pitch change too.');
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && gameRunning) {
+                gameRunning = false;
+                announce('Game paused');
+            } else if (!document.hidden && gameStarted && !gameOver) {
+                gameRunning = true;
+                announce('Game resumed');
+            }
+        });
+    </script>
+</body>
+  </html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessible Flappy Bird - Audio Game for Blind Users</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Start Screen */
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        #startScreen.hidden {
+            display: none;
+        }
+
+        .start-container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .start-title {
+            color: #ffff00;
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px #ffff00;
+        }
+
+        .start-instructions {
+            color: #00ff00;
+            font-size: 18px;
+            margin-bottom: 40px;
+            line-height: 1.6;
+            max-width: 600px;
+        }
+
+        #startButton {
+            background: #ffff00;
+            color: #000;
+            border: none;
+            padding: 30px 60px;
+            font-size: 28px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 0 20px #ffff00;
+            transition: all 0.2s;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        #startButton:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 30px #ffff00;
+        }
+
+        #startButton:focus {
+            outline: 3px solid #00ff00;
+            outline-offset: 5px;
+        }
+
+        /* Game Canvas */
+        #gameContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #gameContainer.hidden {
+            display: none;
+        }
+
+        canvas {
+            display: block;
+            background: #1a1a1a;
+            border: 5px solid #ffff00;
+            width: 100%;
+            height: 100%;
+            max-width: 480px;
+            max-height: 853px;
+            touch-action: none;
+        }
+
+        /* Control Panel */
+        #controlPanel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: #000;
+            border: 2px solid #ffff00;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #volumeLabel {
+            color: #ffff00;
+            display: block;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        #volumeControl {
+            width: 150px;
+            accent-color: #ffff00;
+            cursor: pointer;
+        }
+
+        /* Status Display */
+        #gameStatus {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            color: #00ff00;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 999;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 5px #00ff00;
+        }
+
+        /* Live Region for Announcements */
+        #liveRegion {
+            position: absolute;
+            top: -10000px;
+            left: -10000px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .start-title {
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+
+            .start-instructions {
+                font-size: 16px;
+                margin-bottom: 30px;
+            }
+
+            #startButton {
+                padding: 25px 50px;
+                font-size: 24px;
+            }
+
+            #controlPanel {
+                top: 5px;
+                left: 5px;
+                padding: 8px;
+            }
+
+            #gameStatus {
+                font-size: 16px;
+                padding: 12px;
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Live Region for Screen Reader Announcements -->
+    <div id="liveRegion" role="status" aria-live="assertive" aria-atomic="true"></div>
+
+    <!-- Start Screen -->
+    <div id="startScreen">
+        <div class="start-container">
+            <div class="start-title">🎮 FLAPPY BIRD 🎮</div>
+            <div class="start-instructions">
+                <strong>HOW TO PLAY:</strong><br><br>
+                ✋ TAP the START button below<br>
+                🔊 Listen to the PITCH change<br>
+                👆 TAP anywhere to FLY<br>
+                🎯 Avoid the GREEN PIPES<br>
+                📳 Feel vibration when you crash<br><br>
+                <span style="color: #ffff00;">Higher Pitch = Flying Up</span><br>
+                <span style="color: #ffff00;">Lower Pitch = Falling Down</span>
+            </div>
+            <button id="startButton" aria-label="Start Game Button - Tap to begin playing">START GAME</button>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="gameContainer" class="hidden">
+        <!-- Control Panel -->
+        <div id="controlPanel">
+            <label for="volumeControl" id="volumeLabel">Volume:</label>
+            <input type="range" id="volumeControl" min="0" max="100" value="70" aria-label="Master Volume Control">
+        </div>
+
+        <!-- Game Canvas -->
+        <canvas id="gameCanvas" 
+                role="img" 
+                aria-label="Flappy Bird Game - Tap anywhere to fly the bird"
+                style="cursor: pointer;"></canvas>
+
+        <!-- Status Display -->
+        <div id="gameStatus" role="status" aria-live="polite">
+            <div id="statusText">READY</div>
+            <div style="font-size: 16px; margin-top: 8px;">Score: <span id="scoreDisplay">0</span></div>
+        </div>
+    </div>
+
+    <script>
+        const startScreen = document.getElementById('startScreen');
+        const startButton = document.getElementById('startButton');
+        const gameContainer = document.getElementById('gameContainer');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const liveRegion = document.getElementById('liveRegion');
+        const volumeControl = document.getElementById('volumeControl');
+        const statusText = document.getElementById('statusText');
+
+        let gameStarted = false;
+        let gameRunning = false;
+        let gameOver = false;
+        let audioInitialized = false;
+        let audioContext = null;
+        let audioVolume = 0.7;
+
+        function resizeCanvas() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const maxWidth = 480;
+            const maxHeight = 853;
+
+            if (width <= maxWidth) {
+                canvas.width = width;
+                canvas.height = height;
+            } else {
+                canvas.width = maxWidth;
+                canvas.height = maxHeight;
+            }
+        }
+
+        let score = 0;
+
+        const bird = {
+            x: canvas.width * 0.2,
+            y: canvas.height / 2,
+            width: 30,
+            height: 30,
+            velocity: 0,
+            gravity: 0.25,
+            flapForce: -8,
+            maxVelocity: 6
+        };
+
+        const pipe = {
+            width: 80,
+            gapSize: 300,
+            spacing: 400,
+            velocity: -2
+        };
+
+        let pipes = [];
+        let nextPipeX = canvas.width + 200;
+        let pipesPassed = new Set();
+
+        let navigationOscillator = null;
+        let navigationGain = null;
+
+        function initializeAudio() {
+            if (audioInitialized) return;
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                navigationOscillator = audioContext.createOscillator();
+                navigationGain = audioContext.createGain();
+                navigationOscillator.type = 'sine';
+                navigationOscillator.connect(navigationGain);
+                navigationGain.connect(audioContext.destination);
+                navigationGain.gain.value = 0;
+                navigationOscillator.start(0);
+
+                audioInitialized = true;
+            } catch (e) {
+                console.error('Audio init failed:', e);
+            }
+        }
+
+        function updateNavigationPitch() {
+            if (!audioInitialized || !gameRunning || gameOver) {
+                if (navigationGain && audioContext) {
+                    navigationGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.05);
+                }
+                return;
+            }
+
+            const minY = 50;
+            const maxY = canvas.height - 80;
+            const normalized = Math.max(0, Math.min(1, (bird.y - minY) / (maxY - minY)));
+            const frequency = 800 - (normalized * 750);
+
+            if (navigationOscillator && audioContext) {
+                navigationOscillator.frequency.setTargetAtTime(frequency, audioContext.currentTime, 0.05);
+                const targetVolume = audioVolume * 0.35;
+                navigationGain.gain.setTargetAtTime(targetVolume, audioContext.currentTime, 0.05);
+            }
+        }
+
+        function playSound(frequency, duration, attack = 0.05, release = 0.1) {
+            if (!audioInitialized || !audioContext) return;
+
+            try {
+                const now = audioContext.currentTime;
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(audioVolume * 0.5, now + attack);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration - release);
+
+                oscillator.start(now);
+                oscillator.stop(now + duration);
+            } catch (e) {
+                console.error('Sound error:', e);
+            }
+        }
+
+        function playFlapSound() {
+            playSound(500, 0.15, 0.02, 0.05);
+            playSound(650, 0.12, 0.02, 0.03);
+        }
+
+        function playScoreSound() {
+            playSound(800, 0.1, 0.02, 0.02);
+            playSound(1000, 0.15, 0.02, 0.05);
+            playSound(800, 0.1, 0.02, 0.02);
+        }
+
+        function playCrashSound() {
+            playSound(200, 0.3, 0.05, 0.15);
+            playSound(150, 0.35, 0.05, 0.2);
+        }
+
+        volumeControl.addEventListener('input', (e) => {
+            audioVolume = parseInt(e.target.value) / 100;
+        });
+
+        function vibrate(pattern) {
+            try {
+                if (navigator.vibrate) {
+                    navigator.vibrate(pattern);
+                } else if (navigator.webkitVibrate) {
+                    navigator.webkitVibrate(pattern);
+                }
+            } catch (e) {
+                console.error('Vibration error:', e);
+            }
+        }
+
+        function vibrateFlap() {
+            vibrate([50]);
+        }
+
+        function vibrateScore() {
+            vibrate([80, 50, 80]);
+        }
+
+        function vibrateCrash() {
+            vibrate([200, 100, 200, 100, 200]);
+        }
+
+        function announce(text) {
+            liveRegion.textContent = text;
+        }
+
+        let lastGuidanceTime = 0;
+        const guidanceInterval = 800;
+
+        function giveVoiceGuidance() {
+            if (!gameRunning || gameOver || !audioInitialized) return;
+
+            const now = Date.now();
+            if (now - lastGuidanceTime < guidanceInterval) return;
+
+            lastGuidanceTime = now;
+
+            const minY = 50;
+            const maxY = canvas.height - 80;
+            const normalized = Math.max(0, Math.min(1, (bird.y - minY) / (maxY - minY)));
+
+            if (normalized < 0.33) {
+                announce('Up. Tap to go down.');
+            } else if (normalized > 0.67) {
+                announce('Down. Tap to go up.');
+            } else {
+                announce('Center. Good position. Relax.');
+            }
+        }
+
+        function updateStatusDisplay() {
+            document.getElementById('scoreDisplay').textContent = score;
+            let status = 'PLAYING';
+            if (gameOver) {
+                status = '❌ GAME OVER';
+            } else if (!gameRunning) {
+                status = '⏸️ PAUSED';
+            }
+            statusText.textContent = status;
+        }
+
+        function flap() {
+            if (!gameRunning || gameOver) return;
+            bird.velocity = bird.flapForce;
+            playFlapSound();
+            vibrateFlap();
+        }
+
+        function update() {
+            if (!gameRunning || !gameStarted) return;
+
+            bird.velocity += bird.gravity;
+            bird.velocity = Math.min(bird.velocity, bird.maxVelocity);
+            bird.y += bird.velocity;
+
+            updateNavigationPitch();
+            giveVoiceGuidance();
+
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                pipes[i].x += pipe.velocity;
+
+                if (pipes[i].x + pipe.width < bird.x && !pipesPassed.has(i)) {
+                    pipesPassed.add(i);
+                    score++;
+                    playScoreSound();
+                    vibrateScore();
+                    announce(`Score: ${score}`);
+                    updateStatusDisplay();
+                }
+
+                if (pipes[i].x + pipe.width < 0) {
+                    pipes.splice(i, 1);
+                }
+            }
+
+            if (nextPipeX < canvas.width) {
+                const gapPosition = Math.random() * (canvas.height - pipe.gapSize - 100) + 50;
+                pipes.push({ x: canvas.width, y: gapPosition });
+                nextPipeX = canvas.width + pipe.spacing;
+            }
+
+            if (bird.y - bird.height / 2 <= 0 || bird.y + bird.height / 2 >= canvas.height) {
+                endGame();
+                return;
+            }
+
+            for (let p of pipes) {
+                const birdLeft = bird.x - bird.width / 2;
+                const birdRight = bird.x + bird.width / 2;
+                const birdTop = bird.y - bird.height / 2;
+                const birdBottom = bird.y + bird.height / 2;
+
+                const pipeLeft = p.x;
+                const pipeRight = p.x + pipe.width;
+                const topPipeBottom = p.y;
+                const bottomPipeTop = p.y + pipe.gapSize;
+
+                if (birdRight > pipeLeft && birdLeft < pipeRight) {
+                    if (birdTop < topPipeBottom || birdBottom > bottomPipeTop) {
+                        endGame();
+                        return;
+                    }
+                }
+            }
+        }
+
+        function endGame() {
+            gameRunning = false;
+            gameOver = true;
+            playCrashSound();
+            vibrateCrash();
+            announce(`Game Over! Final Score: ${score}. Tap anywhere to play again.`);
+            updateStatusDisplay();
+            if (navigationGain && audioContext) {
+                navigationGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.2);
+            }
+        }
+
+        function resetGame() {
+            bird.y = canvas.height / 2;
+            bird.velocity = 0;
+            pipes = [];
+            pipesPassed.clear();
+            nextPipeX = canvas.width + 200;
+            score = 0;
+            gameRunning = true;
+            gameOver = false;
+            announce('Game restarted! Tap anywhere to fly.');
+            updateStatusDisplay();
+        }
+
+        function draw() {
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#00ff00';
+            for (let p of pipes) {
+                ctx.fillRect(p.x, 0, pipe.width, p.y);
+                ctx.fillRect(p.x, p.y + pipe.gapSize, pipe.width, canvas.height);
+            }
+
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(bird.x, bird.y, bird.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#ff6600';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffff00';
+            ctx.font = 'bold 40px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Score: ${score}`, 20, 60);
+
+            if (gameOver) {
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 28px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('TAP TO RESTART', canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function handleTap(e) {
+            if (e) e.preventDefault();
+            if (!gameStarted) return;
+
+            if (gameOver) {
+                resetGame();
+            } else if (gameRunning) {
+                flap();
+            }
+        }
+
+        document.addEventListener('touchstart', (e) => {
+            handleTap(e);
+        }, false);
+
+        document.addEventListener('touchend', (e) => {
+            e.preventDefault();
+        }, false);
+
+        document.addEventListener('click', (e) => {
+            handleTap(e);
+        }, false);
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.code === 'Space' || e.code === 'ArrowUp') && gameStarted) {
+                e.preventDefault();
+                handleTap(e);
+            }
+        });
+
+        startButton.addEventListener('click', (e) => {
+            e.preventDefault();
+
+            initializeAudio();
+
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            vibrate([100, 50, 100]);
+            playSound(800, 0.3, 0.05, 0.1);
+
+            setTimeout(() => {
+                startScreen.classList.add('hidden');
+                gameContainer.classList.remove('hidden');
+
+                gameStarted = true;
+                gameRunning = true;
+                gameOver = false;
+
+                resizeCanvas();
+
+                announce('Game started! Tap to fly. Listen to pitch and voice guidance. Center position is safe. Up means go down, Down means go up.');
+                updateStatusDisplay();
+
+                gameLoop();
+            }, 500);
+        });
+
+        startButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+        }, false);
+
+        let lastFrameTime = Date.now();
+        const targetFPS = 60;
+        const frameInterval = 1000 / targetFPS;
+
+        function gameLoop() {
+            const now = Date.now();
+            const elapsed = now - lastFrameTime;
+
+            if (elapsed >= frameInterval) {
+                update();
+                draw();
+                lastFrameTime = now - (elapsed % frameInterval);
+            }
+
+            if (gameStarted) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            announce('Welcome to Accessible Flappy Bird. Tap Start Game button. Game will tell you: Up means go down, Down means go up, Center means stay. Listen to pitch change too.');
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && gameRunning) {
+                gameRunning = false;
+                announce('Game paused');
+            } else if (!document.hidden && gameStarted && !gameOver) {
+                gameRunning = true;
+                announce('Game resumed');
+            }
+        });
+    </script>
+</body>
+  </html>
